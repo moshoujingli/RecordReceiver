@@ -1,0 +1,6 @@
+exports.config = {
+	port:111,
+	tmpDir:'./storage',
+	key:'111111',
+	bucket:'bucket'
+};
