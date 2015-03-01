@@ -5,7 +5,11 @@ var fs = require('fs');
 var crypto = require("crypto");
 var AWS = require('aws-sdk');
 var multer  = require('multer');
+
+AWS.config.update({region: config.AWSRegion});
+
 var s3 = new AWS.S3();
+var sns = new AWS.SNS();
 
 console.log('listen')
 app.get('*', function(req, res){
@@ -43,6 +47,17 @@ function storeInfo (req,callback) {
     s3obj.upload({Body: body}).
       on('httpUploadProgress', function(evt) { console.log(evt); }).
       send(function(err, data) { callback(err, data) });
+}
+
+function sendMsgToMobile (storageInfo,callback) {
+    var msg = {};
+    msg.TargetArn = config.targetARN;
+    msg.Message = storageInfo.Location
+    msg.Subject = 'Motion Detected'
+    // do not need callback
+    sns.publish(msg,function (err,data) {
+        callback(err,data)
+    })
 
 }
 
@@ -71,9 +86,17 @@ app.post('/receive',function(req,res) {
                         console.log(err)
                         res.end(err.message)
                     } else{
-                        console.log('ok')
-                        fs.unlink(req.files.pkg.path)
-                        res.status(200).end('OK')
+                        sendMsgToMobile(data,function (err,data) {
+                            if(err) {
+                                console.log(err);
+                                res.end(err.message);
+                                return
+                            }else{
+                                console.log(data)
+                                fs.unlink(req.files.pkg.path)
+                                res.status(200).end('OK')   
+                            }
+                        });
                     }
                 });
             }
